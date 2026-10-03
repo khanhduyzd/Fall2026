@@ -73,13 +73,9 @@ void recordMeasurement() {
   float elapsedMinutes =
       millis() / 60000.0;
 
-  // Print one CSV row.
-  Serial.print(sampleNumber);
-  Serial.print(",");
+  // Print only time and battery voltage.
   Serial.print(elapsedMinutes, 3);
-  Serial.print(",");
-  Serial.print(averageADC, 1);
-  Serial.print(",");
+  Serial.print(", ");
   Serial.println(batteryVoltage, 3);
 
   sampleNumber++;
@@ -90,9 +86,7 @@ void setup() {
   delay(1000);
 
   // CSV column headings.
-  Serial.println(
-      "sample,elapsed_min,adc_average,battery_voltage_V"
-  );
+  Serial.println("time_min,voltage_V");
 
   // Record the initial measurement immediately.
   recordMeasurement();
