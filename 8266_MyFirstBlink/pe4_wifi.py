@@ -1,183 +1,112 @@
 #!/usr/bin/env python3
 
 # ============================================================
-# Title: Raspberry Pi Wi-Fi Control and IP Status Indicator
+# Title: Raspberry Pi Wi-Fi Button Controller
 # ============================================================
 # Program Detail:
-# Purpose: Turn Wi-Fi off or on using two push buttons and
-#          blink an LED whenever wlan0 has no IPv4 address.
-# Inputs:
-#   GPIO22 - Wi-Fi OFF button
-#   GPIO23 - Wi-Fi ON button
-# Outputs:
-#   GPIO17 - Wi-Fi status LED
+# Purpose: Control Wi-Fi with two buttons and blink an LED
+#          whenever wlan0 does not have an IPv4 address.
+# Inputs: GPIO22 OFF button and GPIO23 ON button.
+# Outputs: GPIO17 Wi-Fi status LED.
 # Date: October 8, 2026
 # Compiler: Python 3 interpreter on Raspberry Pi OS
 # Author: Duy Pham
 # Version:
-#   V1.0 - Initial Wi-Fi control and status indicator
+#   V1.0 - Compact Wi-Fi controller
 # ============================================================
 # File Dependencies:
-#   subprocess
-#   time
-#   RPi.GPIO
-#   NetworkManager nmcli utility
-#   Linux ip utility
+#   subprocess, time, RPi.GPIO, nmcli, ip
 # ============================================================
 
 import subprocess
 import time
 import RPi.GPIO as GPIO
 
-LED_PIN = 17
-OFF_BUTTON_PIN = 22
-ON_BUTTON_PIN = 23
+LED = 17
+OFF_BUTTON = 22
+ON_BUTTON = 23
 
-GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup(LED, GPIO.OUT, initial=GPIO.LOW)
+GPIO.setup(OFF_BUTTON, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(ON_BUTTON, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
-GPIO.setup(LED_PIN, GPIO.OUT, initial=GPIO.LOW)
 
-GPIO.setup(
-    OFF_BUTTON_PIN,
-    GPIO.IN,
-    pull_up_down=GPIO.PUD_DOWN
-)
+def run(*command):
+    result = subprocess.run(
+        command,
+        capture_output=True,
+        text=True
+    )
 
-GPIO.setup(
-    ON_BUTTON_PIN,
-    GPIO.IN,
-    pull_up_down=GPIO.PUD_DOWN
-)
+    if result.returncode != 0:
+        print("Error:", result.stderr.strip(), flush=True)
+
+    return result.returncode == 0
 
 
 def wifi_has_ip():
-    """Return True when wlan0 has an IPv4 address."""
-
     result = subprocess.run(
-        [
-            "ip",
-            "-4",
-            "-o",
-            "address",
-            "show",
-            "dev",
-            "wlan0",
-            "scope",
-            "global"
-        ],
+        ["ip", "-4", "-o", "address", "show", "wlan0"],
         capture_output=True,
-        text=True,
-        check=False
+        text=True
     )
 
     return bool(result.stdout.strip())
 
 
 def set_wifi(enabled):
-    """Enable or disable the Wi-Fi interface."""
+    state = "on" if enabled else "off"
+    print(f"{state.upper()} button detected", flush=True)
+
+    if not run("nmcli", "radio", "wifi", state):
+        return
 
     if enabled:
-        print("ON button detected", flush=True)
-
-        radio_result = subprocess.run(
-            ["nmcli", "radio", "wifi", "on"],
-            capture_output=True,
-            text=True,
-            check=False
-        )
-
-        if radio_result.returncode != 0:
-            print(
-                "Unable to enable Wi-Fi:",
-                radio_result.stderr.strip(),
-                flush=True
-            )
-            return
-
-        # Give the Wi-Fi interface time to become available.
         time.sleep(2)
+        run("nmcli", "device", "connect", "wlan0")
 
-        connect_result = subprocess.run(
-            ["nmcli", "device", "connect", "wlan0"],
-            capture_output=True,
-            text=True,
-            check=False
-        )
-
-        if connect_result.returncode != 0:
-            print(
-                "Wi-Fi enabled, but connection request reported:",
-                connect_result.stderr.strip(),
-                flush=True
-            )
-        else:
-            print("Wi-Fi enabled; connecting...", flush=True)
-
-    else:
-        print("OFF button detected", flush=True)
-
-        result = subprocess.run(
-            ["nmcli", "radio", "wifi", "off"],
-            capture_output=True,
-            text=True,
-            check=False
-        )
-
-        if result.returncode == 0:
-            print("Wi-Fi disabled", flush=True)
-        else:
-            print(
-                "Unable to disable Wi-Fi:",
-                result.stderr.strip(),
-                flush=True
-            )
+    print(f"Wi-Fi turned {state}", flush=True)
 
 
-previous_off_state = GPIO.input(OFF_BUTTON_PIN)
-previous_on_state = GPIO.input(ON_BUTTON_PIN)
+previous_off = GPIO.input(OFF_BUTTON)
+previous_on = GPIO.input(ON_BUTTON)
 
 led_state = False
-last_blink_time = 0
-last_ip_check = 0
 has_ip = wifi_has_ip()
+last_check = 0
+last_blink = 0
+
+print("PE4 running", flush=True)
 
 try:
-    print("PE4 program running", flush=True)
-
     while True:
-        current_time = time.monotonic()
+        now = time.monotonic()
+        off = GPIO.input(OFF_BUTTON)
+        on = GPIO.input(ON_BUTTON)
 
-        off_state = GPIO.input(OFF_BUTTON_PIN)
-        on_state = GPIO.input(ON_BUTTON_PIN)
-
-        # Detect one press of the OFF button.
-        if off_state == GPIO.HIGH and previous_off_state == GPIO.LOW:
+        if off and not previous_off:
             set_wifi(False)
 
-        # Detect one press of the ON button.
-        if on_state == GPIO.HIGH and previous_on_state == GPIO.LOW:
+        if on and not previous_on:
             set_wifi(True)
 
-        previous_off_state = off_state
-        previous_on_state = on_state
+        previous_off = off
+        previous_on = on
 
-        # Check the Wi-Fi IP address twice per second.
-        if current_time - last_ip_check >= 0.5:
+        if now - last_check >= 0.5:
             has_ip = wifi_has_ip()
-            last_ip_check = current_time
+            last_check = now
 
-        # Blink while wlan0 does not have an IP address.
-        if not has_ip:
-            if current_time - last_blink_time >= 0.5:
-                led_state = not led_state
-                GPIO.output(LED_PIN, led_state)
-                last_blink_time = current_time
+        if not has_ip and now - last_blink >= 0.5:
+            led_state = not led_state
+            GPIO.output(LED, led_state)
+            last_blink = now
 
-        # Turn the LED off when wlan0 has an IP address.
-        elif led_state:
-            GPIO.output(LED_PIN, GPIO.LOW)
+        elif has_ip and led_state:
             led_state = False
+            GPIO.output(LED, GPIO.LOW)
 
         time.sleep(0.02)
 
@@ -185,11 +114,6 @@ except KeyboardInterrupt:
     print("\nProgram stopped", flush=True)
 
 finally:
-    GPIO.output(LED_PIN, GPIO.LOW)
+    GPIO.output(LED, GPIO.LOW)
     GPIO.cleanup()
-
-    # Leave Wi-Fi enabled when the program exits.
-    subprocess.run(
-        ["nmcli", "radio", "wifi", "on"],
-        check=False
-    )
+    subprocess.run(["nmcli", "radio", "wifi", "on"])
