@@ -25,29 +25,27 @@
 import os
 
 while True:
-    print("\nSelect the program you would like to execute:")
-    print("---------------------------------------------")
-    print("1) PE0: Sum and Even/Odd Calculator")
-    print("2) PE1: Button-Press Detector")
-    print("3) PE2: Button-Controlled Ping")
-    print("4) PE3: Incoming Ping LED")
-    print("5) PE4: Wi-Fi Controller")
-    print("6) Exit")
+    print("\nSelect a program:")
+    print("0) PE0: Sum Calculator")
+    print("1) PE1: Button Detector")
+    print("2) PE2: Button Ping")
+    print("3) PE3: Incoming Ping LED")
+    print("4) PE4: Wi-Fi Controller")
+    print("5) Exit")
 
     choice = input("Enter your choice: ")
 
-    if choice == "1":
-        os.system("python3 pe0_sum.py")
+    if choice == "0":
+        os.system("python3 /home/duypham/pe0_sum.py")
+    elif choice == "1":
+        os.system("python3 /home/duypham/pe1_button.py")
     elif choice == "2":
-        os.system("python3 pe1_button.py")
+        os.system("python3 /home/duypham/pe2_ping.py")
     elif choice == "3":
-        os.system("python3 pe2_ping.py")
+        os.system("python3 /home/duypham/pe3_ping_LED.py")
     elif choice == "4":
-        os.system("python3 pe3_ping_LED.py")
+        os.system("python3 /home/duypham/pe4_wifi.py")
     elif choice == "5":
-        os.system("python3 pe4_wifi.py")
-    elif choice == "6":
-        print("Exiting program.")
         break
     else:
         print("Invalid choice.")
