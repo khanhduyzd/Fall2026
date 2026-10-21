@@ -326,9 +326,10 @@ CREATE TABLE sensor_register (
 CREATE TABLE sensor_data (
     node_name VARCHAR(10) NOT NULL,
     time_received DATETIME NOT NULL,
-    temperature DECIMAL(6,2),
-    humidity DECIMAL(6,2),
-    PRIMARY KEY (node_name, time_received)
+    temperature DECIMAL(6,2), CHECK (temperature BETWEEN -10 AND 100),
+    humidity DECIMAL(6,2), CHECK (humidity BETWEEN 0 AND 100),
+    PRIMARY KEY (node_name, time_received),
+    FOREIGN KEY (node_name) REFERENCES sensor_register(node_name)
 );
 
 
