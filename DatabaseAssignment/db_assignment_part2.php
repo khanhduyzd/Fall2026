@@ -6,18 +6,13 @@ $servername = "localhost";
 $username = "u153404388_db_DuyPham";
 $password = "Database2026!";
 $dbname = "u153404388_DuyPham";
-$conn = new mysqli(
-    $servername,
-    $username,
-    $password,
-    $dbname
-);
+
+$conn = new mysqli($servername, $username, $password, $dbname);
 
 if ($conn->connect_error) {
     die("Database connection failed: " . $conn->connect_error);
 }
 
-/* Registered sensor nodes */
 $register_sql = "
     SELECT node_name, manufacturer, longitude, latitude
     FROM sensor_register
@@ -30,7 +25,6 @@ if (!$register_result) {
     die("Error reading sensor_register: " . $conn->error);
 }
 
-/* Sensor data sorted by node name and time */
 $data_sql = "
     SELECT node_name, time_received, temperature, humidity
     FROM sensor_data
@@ -43,23 +37,16 @@ if (!$data_result) {
     die("Error reading sensor_data: " . $conn->error);
 }
 
-/* Calculate averages for node_1 */
 $average_node = "node_1";
 
 $average_sql = "
-    SELECT
-        AVG(temperature) AS average_temperature,
-        AVG(humidity) AS average_humidity
+    SELECT AVG(temperature) AS average_temperature,
+           AVG(humidity) AS average_humidity
     FROM sensor_data
     WHERE node_name = '$average_node'
 ";
 
 $average_result = $conn->query($average_sql);
-
-if (!$average_result) {
-    die("Error calculating averages: " . $conn->error);
-}
-
 $average_row = $average_result->fetch_assoc();
 
 $average_temperature = $average_row["average_temperature"];
@@ -121,7 +108,6 @@ $average_humidity = $average_row["average_humidity"];
             margin: 25px auto;
             padding: 15px;
             background-color: white;
-            color: black;
             border: 1px solid black;
             text-align: center;
             font-size: 18px;
@@ -129,6 +115,15 @@ $average_humidity = $average_row["average_humidity"];
 
         .average p {
             margin: 8px;
+        }
+
+        #chart-container {
+            width: 90%;
+            height: 450px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: white;
+            border: 1px solid black;
         }
     </style>
 </head>
@@ -149,22 +144,14 @@ $average_humidity = $average_row["average_humidity"];
             <th>Latitude</th>
         </tr>
 
-        <?php
-        if ($register_result->num_rows > 0) {
-            while ($row = $register_result->fetch_assoc()) {
-                echo "<tr>";
-                echo "<td>" . htmlspecialchars($row["node_name"]) . "</td>";
-                echo "<td>" . htmlspecialchars($row["manufacturer"]) . "</td>";
-                echo "<td>" . htmlspecialchars($row["longitude"]) . "</td>";
-                echo "<td>" . htmlspecialchars($row["latitude"]) . "</td>";
-                echo "</tr>";
-            }
-        } else {
-            echo "<tr>";
-            echo "<td colspan='4'>No registered sensors found.</td>";
-            echo "</tr>";
-        }
-        ?>
+        <?php while ($row = $register_result->fetch_assoc()): ?>
+            <tr>
+                <td><?= htmlspecialchars($row["node_name"]) ?></td>
+                <td><?= htmlspecialchars($row["manufacturer"]) ?></td>
+                <td><?= htmlspecialchars($row["longitude"]) ?></td>
+                <td><?= htmlspecialchars($row["latitude"]) ?></td>
+            </tr>
+        <?php endwhile; ?>
     </table>
 
     <h2>Data Received</h2>
@@ -177,53 +164,45 @@ $average_humidity = $average_row["average_humidity"];
             <th>Humidity</th>
         </tr>
 
-        <?php
-        if ($data_result->num_rows > 0) {
-            while ($row = $data_result->fetch_assoc()) {
-                echo "<tr>";
-                echo "<td>" . htmlspecialchars($row["node_name"]) . "</td>";
-                echo "<td>" . htmlspecialchars($row["time_received"]) . "</td>";
-                echo "<td>" . htmlspecialchars($row["temperature"]) . " °C</td>";
-                echo "<td>" . htmlspecialchars($row["humidity"]) . " %</td>";
-                echo "</tr>";
-            }
-        } else {
-            echo "<tr>";
-            echo "<td colspan='4'>No sensor data found.</td>";
-            echo "</tr>";
-        }
-        ?>
+        <?php while ($row = $data_result->fetch_assoc()): ?>
+            <tr>
+                <td><?= htmlspecialchars($row["node_name"]) ?></td>
+                <td><?= htmlspecialchars($row["time_received"]) ?></td>
+                <td><?= htmlspecialchars($row["temperature"]) ?> °C</td>
+                <td><?= htmlspecialchars($row["humidity"]) ?> %</td>
+            </tr>
+        <?php endwhile; ?>
     </table>
 
-    <h2>Average Values</h2>
+    <h2>Average Values for Node 1</h2>
 
     <div class="average">
         <?php if ($average_temperature !== null): ?>
-
             <p>
-                The average temperature for
-                <strong><?= htmlspecialchars($average_node) ?></strong>
-                is:
-
+                Average temperature:
                 <?= number_format($average_temperature, 2) ?> °C
             </p>
 
             <p>
-                The average humidity for
-                <strong><?= htmlspecialchars($average_node) ?></strong>
-                is:
-
+                Average humidity:
                 <?= number_format($average_humidity, 2) ?> %
             </p>
-
         <?php else: ?>
-
-            <p>No data is available for <?= htmlspecialchars($average_node) ?>.</p>
-
+            <p>No data is available for node_1.</p>
         <?php endif; ?>
     </div>
 
+    <h2>Temperature Chart for Node 1</h2>
+
+    <div id="chart-container">
+        <canvas id="mycanvas"></canvas>
+    </div>
+
 </div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+<script src="/Chartjs/app.js?v=<?= filemtime(__DIR__ . "/Chartjs/app.js") ?>"></script>
 
 </body>
 </html>
