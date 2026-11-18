@@ -3,7 +3,7 @@
  * Project/Program Name : ESP8266 IoT Sensor System
  * File Name            : main.cpp
  * Author               : Duy Pham
- * Version              : 1.0
+ * Version              : 2.0
  *
  * Purpose:
  * Read temperature, humidity, and light data.
@@ -65,24 +65,39 @@ PendingMeasurement pendingMeasurement;
 
 bool transmissionPending = false;
 unsigned long lastAttemptTime = 0;
+unsigned long lastWiFiReconnectTime = 0;
 
-const unsigned long RETRY_INTERVAL = 30000;
+const unsigned long RETRY_INTERVAL = 60000;
+const unsigned long WIFI_RECONNECT_INTERVAL = 10000;
 
 /* =====================================================
    Connect to Wi-Fi
    ===================================================== */
 
-void connectToWiFi() {
+bool connectToWiFi() {
     Serial.print("Connecting to Wi-Fi");
 
+    WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(false);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-    while (WiFi.status() != WL_CONNECTED) {
+    unsigned long startTime = millis();
+
+    while (WiFi.status() != WL_CONNECTED &&
+           millis() - startTime < 15000) {
         delay(500);
         Serial.print(".");
     }
 
     Serial.println();
+
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("Wi-Fi connection failed.");
+        Serial.println("The system will retry automatically.");
+        return false;
+    }
+
     Serial.println("Wi-Fi connected");
 
     Serial.print("IP address: ");
@@ -94,6 +109,8 @@ void connectToWiFi() {
     Serial.print("RSSI: ");
     Serial.print(WiFi.RSSI());
     Serial.println(" dBm");
+
+    return true;
 }
 
 /* =====================================================
@@ -227,6 +244,26 @@ String getCurrentTime() {
    ===================================================== */
 
 bool sendPendingMeasurement() {
+    if (!transmissionPending) {
+        return false;
+    }
+
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("Wi-Fi unavailable. Measurement remains pending.");
+        return false;
+    }
+
+    if (pendingMeasurement.timeReceived == "") {
+        pendingMeasurement.timeReceived = getCurrentTime();
+
+        if (pendingMeasurement.timeReceived == "") {
+            Serial.println(
+                "Could not get timestamp. Measurement remains pending."
+            );
+            return false;
+        }
+    }
+
     String encodedTime = pendingMeasurement.timeReceived;
 
     // Encode the space in the timestamp.
@@ -309,12 +346,6 @@ void createMeasurement(String nodeName) {
         return;
     }
 
-    String currentTime = getCurrentTime();
-
-    if (currentTime == "") {
-        Serial.println("ERROR: Could not get timestamp.");
-        return;
-    }
 
     /*
      * Store all original values.
@@ -324,7 +355,7 @@ void createMeasurement(String nodeName) {
     pendingMeasurement.temperature = temperature;
     pendingMeasurement.humidity = humidity;
     pendingMeasurement.lightValue = lightValue;
-    pendingMeasurement.timeReceived = currentTime;
+    pendingMeasurement.timeReceived = "";
 
     transmissionPending = true;
     lastAttemptTime = millis();
@@ -396,9 +427,19 @@ void setup() {
    ===================================================== */
 
 void loop() {
+    if (WiFi.status() != WL_CONNECTED &&
+    millis() - lastWiFiReconnectTime >= WIFI_RECONNECT_INTERVAL) {
+
+    lastWiFiReconnectTime = millis();
+
+    Serial.println();
+    Serial.println("Wi-Fi disconnected. Trying to reconnect...");
+    WiFi.reconnect();
+}
+    
     bool currentTiltState = digitalRead(TILT_PIN);
     bool currentButtonState = digitalRead(BUTTON_PIN);
-
+   
     /*
      * Detect a new tilt activation.
      * Tilt switch sends data as node_2.
