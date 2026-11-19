@@ -1,40 +1,31 @@
 import paho.mqtt.client as mqtt
 import mysql.connector
 
-# MQTT broker and topic
+# MQTT settings
 BROKER_URL = "broker.hivemq.com"
-BROKER_PORT = 8000  # WebSocket port
-
+BROKER_PORT = 8000
 TOPIC = "testtopic/temp/outTopic/esp8266"
 
-# Hostinger database information
-DB_HOST = "localhost"
+# Hostinger database settings
+DB_HOST = "srv630.hstgr.io"
 DB_USER = "u153404388_db_DuyPham"
-DB_PASSWORD = "Database2026!"
+DB_PASSWORD = "9D@fGFo9"
 DB_NAME = "u153404388_DuyPham"
+DB_PORT = 3306
 
 def save_to_database(sensor_value):
     connection = None
     cursor = None
 
     try:
-        connection = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            database=DB_NAME
-        )
-
+        connection = mysql.connector.connect(host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD, database=DB_NAME)
         cursor = connection.cursor()
-
-        sql = """
-            INSERT INTO sensor_value (value)
+        query = """
+            INSERT INTO pot_sensor_value (value)
             VALUES (%s)
         """
-
-        cursor.execute(sql, (sensor_value,))
+        cursor.execute(query, (sensor_value,))
         connection.commit()
-
         print("Saved to database:", sensor_value)
 
     except mysql.connector.Error as error:
@@ -54,39 +45,33 @@ def on_connect(client, userdata, flags, rc):
 
         client.subscribe(TOPIC)
 
-        print(f"Subscribed to topic: {TOPIC}")
-
+        print("Subscribed to topic:", TOPIC)
     else:
-        print(f"Failed to connect, return code {rc}")
+        print("MQTT connection failed. Return code:", rc)
 
 
 def on_message(client, userdata, msg):
-    received_message = msg.payload.decode().strip()
+    text_value = msg.payload.decode().strip()
 
-    print(
-        f"Received message: {received_message} "
-        f"from topic: {msg.topic}"
-    )
+    print("Received:", text_value)
+    print("Topic:", msg.topic)
 
     try:
-        sensor_value = float(received_message)
-
+        sensor_value = float(text_value)
         save_to_database(sensor_value)
 
     except ValueError:
-        print("Ignored non-numeric message:", received_message)
+        print("Ignored non-numeric message:", text_value)
 
 
-# Create MQTT client using WebSockets
+# Create a WebSocket MQTT client
 client = mqtt.Client(transport="websockets")
 
-# Attach callback functions
 client.on_connect = on_connect
 client.on_message = on_message
 
-# Connect to HiveMQ
 print("Connecting to broker...")
 client.connect(BROKER_URL, BROKER_PORT, 60)
 
-# Keep receiving messages
 client.loop_forever()
+
