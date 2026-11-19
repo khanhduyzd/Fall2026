@@ -8,11 +8,10 @@ BROKER_PORT = 8000  # WebSocket port
 TOPIC = "testtopic/temp/outTopic/esp8266"
 
 # Hostinger database information
-DB_HOST = "YOUR_HOSTINGER_DATABASE_HOST"
-DB_USER = "YOUR_DATABASE_USERNAME"
-DB_PASSWORD = "YOUR_DATABASE_PASSWORD"
-DB_NAME = "YOUR_DATABASE_NAME"
-
+DB_HOST = "localhost"
+DB_USER = "u153404388_db_DuyPham"
+DB_PASSWORD = "Database2026!"
+DB_NAME = "u153404388_DuyPham"
 
 def save_to_database(sensor_value):
     connection = None
