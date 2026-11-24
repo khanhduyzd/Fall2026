@@ -1,3 +1,14 @@
+
+"""
+Raspberry Pi CPU Temperature Email Alert
+
+This program continuously monitors the Raspberry Pi CPU temperature.
+If the temperature rises above 40°C, it sends an email warning to
+the specified recipient. The program checks the temperature every
+60 seconds and sends only one email until the temperature returns
+to 40°C or below.
+"""
+
 #!/usr/bin/env python3
 
 import os
